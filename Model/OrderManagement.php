@@ -6,6 +6,7 @@ namespace MageBrains\Heleket\Model;
 use MageBrains\Heleket\Logger\Logger;
 use Magento\Framework\DB\Transaction;
 use Magento\Sales\Api\OrderManagementInterface;
+use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
 use Magento\Sales\Model\OrderFactory;
 use Magento\Sales\Model\Service\InvoiceService;
@@ -92,10 +93,11 @@ class OrderManagement
                 $this->logger->warning("Invoice for order $orderIncrementId already created. Skipping");
             }
 
-            $order->setState(\Magento\Sales\Model\Order::STATE_COMPLETE);
-            $order->setStatus(\Magento\Sales\Model\Order::STATE_COMPLETE);
+            $targetState = $order->getIsVirtual() ? Order::STATE_COMPLETE : Order::STATE_PROCESSING;
+            $order->setState($targetState);
+            $order->setStatus($order->getConfig()->getStateDefaultStatus($targetState));
             $order->save();
-            $this->logger->warning("Order $orderIncrementId successfully completed after Heleket payment");
+            $this->logger->warning("Order $orderIncrementId moved to $targetState after Heleket payment");
 
             if ($invoice) {
                 try {
