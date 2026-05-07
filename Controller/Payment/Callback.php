@@ -5,14 +5,14 @@ namespace MageBrains\Heleket\Controller\Payment;
 use MageBrains\Heleket\Logger\Logger;
 use MageBrains\Heleket\Model\Config;
 use MageBrains\Heleket\Model\OrderManagement;
-use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\ActionInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 
-class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
+class Callback implements ActionInterface, CsrfAwareActionInterface
 {
     const HELEKET_ERROR_STATUSES = [
         'fail',
@@ -145,16 +145,33 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
      */
     private function isSignatureValid(array $request): bool
     {
-        if (empty($request['sign'])) {
+        $sign = (string)($request['sign'] ?? $request['signature'] ?? '');
+        if ($sign === '') {
             return false;
         }
+        $sign = strtolower(trim($sign));
 
-        $sign = (string)$request['sign'];
         unset($request['sign']);
+        unset($request['signature']);
 
-        $hash = md5(base64_encode(json_encode($request, JSON_UNESCAPED_UNICODE)) . $this->config->getPaymentKey());
+        $payloads = [$request];
+        $sortedRequest = $request;
+        ksort($sortedRequest);
+        $payloads[] = $sortedRequest;
 
-        return hash_equals($hash, $sign);
+        foreach ($payloads as $payload) {
+            $encodedPayload = json_encode($payload, JSON_UNESCAPED_UNICODE);
+            if ($encodedPayload === false) {
+                continue;
+            }
+
+            $hash = md5(base64_encode($encodedPayload) . $this->config->getPaymentKey());
+            if (hash_equals($hash, $sign)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
