@@ -1,0 +1,32 @@
+{
+    "name": "magebrains/heleket-magento2",
+    "description": "Heleket Payment integration for Magento 2",
+    "type": "magento2-module",
+    "license": "GPL-3.0",
+    "version": "1.0.1",
+    "authors": [
+        {
+            "name": "Sergey",
+            "email": "developer@yandex.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "heleket/api-php-sdk": "^1.0",
+        "magento/module-quote": "*",
+        "magento/module-sales": "*",
+        "magento/module-directory": "*",
+        "magento/module-config": "*",
+        "magento/module-payment": "*",
+        "magento/module-checkout": "*",
+        "magento/module-store": "*"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "MageBrains\\Heleket\\": ""
+        }
+    }
+}
