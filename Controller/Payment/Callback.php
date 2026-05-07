@@ -3,6 +3,7 @@
 namespace MageBrains\Heleket\Controller\Payment;
 
 use MageBrains\Heleket\Logger\Logger;
+use MageBrains\Heleket\Model\Config;
 use MageBrains\Heleket\Model\OrderManagement;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
@@ -41,6 +42,11 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
     private OrderManagement $orderManagement;
 
     /**
+     * @var Config
+     */
+    private Config $config;
+
+    /**
      * @var JsonFactory
      */
     private JsonFactory $resultJsonFactory;
@@ -53,18 +59,21 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
     /**
      * @param Http $request
      * @param OrderManagement $orderManagement
+     * @param Config $config
      * @param JsonFactory $resultJsonFactory
      * @param Logger $logger
      */
     public function __construct(
         Http            $request,
         OrderManagement $orderManagement,
+        Config          $config,
         JsonFactory     $resultJsonFactory,
         Logger          $logger
     ) {
         $this->request = $request;
         $this->logger = $logger;
         $this->orderManagement = $orderManagement;
+        $this->config = $config;
         $this->resultJsonFactory = $resultJsonFactory;
     }
 
@@ -83,6 +92,11 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
         if (!$heleketOrderStatus || !$orderId) {
             $this->logger->warning('Heleket callback missed status or order_id');
             return $resultJson->setHttpResponseCode(200);
+        }
+
+        if (!$this->isSignatureValid($request)) {
+            $this->logger->warning("Invalid Heleket callback signature; Heleket status: $heleketOrderStatus; Heleket order: $orderId");
+            return $resultJson->setHttpResponseCode(400);
         }
 
         if (in_array($heleketOrderStatus, self::PAID_STATUSES, true)) {
@@ -123,6 +137,24 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
 
         $params = $this->request->getParams();
         return is_array($params) ? $params : [];
+    }
+
+    /**
+     * @param array $request
+     * @return bool
+     */
+    private function isSignatureValid(array $request): bool
+    {
+        if (empty($request['sign'])) {
+            return false;
+        }
+
+        $sign = (string)$request['sign'];
+        unset($request['sign']);
+
+        $hash = md5(base64_encode(json_encode($request, JSON_UNESCAPED_UNICODE)) . $this->config->getPaymentKey());
+
+        return hash_equals($hash, $sign);
     }
 
     /**
