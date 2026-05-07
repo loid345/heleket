@@ -107,6 +107,8 @@ class OrderManagement
                     $this->logger->warning('Error sending Invoice email: ' . $exception->getMessage());
                 }
             }
+        } else {
+            $this->logger->warning("Order $orderIncrementId not found for Heleket paid callback");
         }
     }
 
@@ -119,6 +121,8 @@ class OrderManagement
         $order = $this->getOrderByIncrementId($incrementId);
         if ($order->getId()) {
             $this->orderManagement->cancel($order->getId());
+        } else {
+            $this->logger->warning("Order $incrementId not found for Heleket cancel callback");
         }
     }
 
@@ -128,6 +132,15 @@ class OrderManagement
      */
     private function getOrderByIncrementId($orderIncrementId)
     {
-        return $this->orderFactory->create()->loadByIncrementId($orderIncrementId);
+        $order = $this->orderFactory->create()->loadByIncrementId((string)$orderIncrementId);
+        if ($order->getId()) {
+            return $order;
+        }
+
+        if (is_numeric($orderIncrementId)) {
+            $order = $this->orderFactory->create()->load((int)$orderIncrementId);
+        }
+
+        return $order;
     }
 }
