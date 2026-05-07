@@ -75,6 +75,8 @@ class OrderManagement
     {
         $order = $this->getOrderByIncrementId($orderIncrementId);
         if ($order->getId()) {
+            $invoice = null;
+
             if ($order->canInvoice()) {
                 $invoice = $this->invoiceService->prepareInvoice($order);
                 $invoice->register();
@@ -85,19 +87,24 @@ class OrderManagement
                         ->addObject($invoice)
                         ->addObject($invoice->getOrder());
                 $transactionSave->save();
-                $this->invoiceSender->send($invoice);
-
-                $order->addCommentToStatusHistory(
-                    __('Notified customer about invoice creation')
-                )->setIsCustomerNotified(true)->save();
-
-                $order->setState(\Magento\Sales\Model\Order::STATE_COMPLETE);
-                $order->setStatus(\Magento\Sales\Model\Order::STATE_COMPLETE);
-
-                $order->save();
                 $this->logger->warning("Invoice for order $orderIncrementId successfully created");
             } else {
                 $this->logger->warning("Invoice for order $orderIncrementId already created. Skipping");
+            }
+
+            $order->setState(\Magento\Sales\Model\Order::STATE_COMPLETE);
+            $order->setStatus(\Magento\Sales\Model\Order::STATE_COMPLETE);
+            $order->save();
+
+            if ($invoice) {
+                try {
+                    $this->invoiceSender->send($invoice);
+                    $order->addCommentToStatusHistory(
+                        __('Notified customer about invoice creation')
+                    )->setIsCustomerNotified(true)->save();
+                } catch (\Exception $exception) {
+                    $this->logger->warning('Error sending Invoice email: ' . $exception->getMessage());
+                }
             }
         }
     }
