@@ -149,15 +149,29 @@ class Callback implements ActionInterface, CsrfAwareActionInterface
         if ($sign === '') {
             return false;
         }
+        $sign = strtolower(trim($sign));
 
         unset($request['sign']);
         unset($request['signature']);
 
-        ksort($request);
+        $payloads = [$request];
+        $sortedRequest = $request;
+        ksort($sortedRequest);
+        $payloads[] = $sortedRequest;
 
-        $hash = md5(base64_encode(json_encode($request, JSON_UNESCAPED_UNICODE)) . $this->config->getPaymentKey());
+        foreach ($payloads as $payload) {
+            $encodedPayload = json_encode($payload, JSON_UNESCAPED_UNICODE);
+            if ($encodedPayload === false) {
+                continue;
+            }
 
-        return hash_equals($hash, $sign);
+            $hash = md5(base64_encode($encodedPayload) . $this->config->getPaymentKey());
+            if (hash_equals($hash, $sign)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
