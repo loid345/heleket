@@ -5,14 +5,14 @@ namespace MageBrains\Heleket\Controller\Payment;
 use MageBrains\Heleket\Logger\Logger;
 use MageBrains\Heleket\Model\Config;
 use MageBrains\Heleket\Model\OrderManagement;
-use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\ActionInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 
-class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
+class Callback implements ActionInterface, CsrfAwareActionInterface
 {
     const HELEKET_ERROR_STATUSES = [
         'fail',
@@ -145,12 +145,15 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
      */
     private function isSignatureValid(array $request): bool
     {
-        if (empty($request['sign'])) {
+        $sign = (string)($request['sign'] ?? $request['signature'] ?? '');
+        if ($sign === '') {
             return false;
         }
 
-        $sign = (string)$request['sign'];
         unset($request['sign']);
+        unset($request['signature']);
+
+        ksort($request);
 
         $hash = md5(base64_encode(json_encode($request, JSON_UNESCAPED_UNICODE)) . $this->config->getPaymentKey());
 
