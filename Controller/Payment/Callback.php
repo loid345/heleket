@@ -3,13 +3,14 @@
 namespace MageBrains\Heleket\Controller\Payment;
 
 use MageBrains\Heleket\Logger\Logger;
+use MageBrains\Heleket\Model\Config;
 use MageBrains\Heleket\Model\OrderManagement;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
-use Magento\Framework\Webapi\Rest\Request;
 
 class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
 {
@@ -23,6 +24,7 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
     const HELEKET_PENDING_STATUSES = [
         'process',
         'check',
+        'confirm_check',
     ];
 
     const PAID_STATUSES = [
@@ -30,9 +32,9 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
         'paid_over',
     ];
     /**
-     * @var Request
+     * @var Http
      */
-    private Request $request;
+    private Http $request;
 
     /**
      * @var OrderManagement
@@ -40,26 +42,38 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
     private OrderManagement $orderManagement;
 
     /**
-     * @var PageFactory
+     * @var Config
      */
-    private $resultJsonFactory;
+    private Config $config;
 
     /**
-     * @param Request $request
+     * @var JsonFactory
+     */
+    private JsonFactory $resultJsonFactory;
+
+    /**
+     * @var Logger
+     */
+    private Logger $logger;
+
+    /**
+     * @param Http $request
      * @param OrderManagement $orderManagement
+     * @param Config $config
      * @param JsonFactory $resultJsonFactory
      * @param Logger $logger
      */
     public function __construct(
-        Request         $request,
+        Http            $request,
         OrderManagement $orderManagement,
+        Config          $config,
         JsonFactory     $resultJsonFactory,
         Logger          $logger
-    )
-    {
+    ) {
         $this->request = $request;
         $this->logger = $logger;
         $this->orderManagement = $orderManagement;
+        $this->config = $config;
         $this->resultJsonFactory = $resultJsonFactory;
     }
 
@@ -68,34 +82,79 @@ class Callback implements HttpPostActionInterface, CsrfAwareActionInterface
      */
     public function execute()
     {
-        $request = $this->request->getBodyParams();
+        $request = $this->getRequestData();
         $this->logger->warning(json_encode($request));
-        $heleketOrderStatus = $request['status'];
-        $orderId = $request['order_id'];
+
+        $heleketOrderStatus = strtolower(trim((string)($request['status'] ?? '')));
+        $orderId = (string)($request['order_id'] ?? '');
         $resultJson = $this->resultJsonFactory->create();
-        $ocOrderStatus = null;
-        if (in_array($heleketOrderStatus, self::HELEKET_ERROR_STATUSES)) {
-            $ocOrderStatus = 'payment_heleket_invalid_status_id';
-        } elseif (in_array($heleketOrderStatus, self::HELEKET_PENDING_STATUSES)) {
-            $ocOrderStatus = 'payment_heleket_pending_status_id';
-        } elseif (in_array($heleketOrderStatus, self::PAID_STATUSES)) {
-            $ocOrderStatus = 'payment_heleket_paid_status_id';
+
+        if (!$heleketOrderStatus || !$orderId) {
+            $this->logger->warning('Heleket callback missed status or order_id');
+            return $resultJson->setHttpResponseCode(200);
         }
 
-        if ($ocOrderStatus && $ocOrderStatus === 'payment_heleket_paid_status_id') {
+        if (!$this->isSignatureValid($request)) {
+            $this->logger->warning("Invalid Heleket callback signature; Heleket status: $heleketOrderStatus; Heleket order: $orderId");
+            return $resultJson->setHttpResponseCode(400);
+        }
+
+        if (in_array($heleketOrderStatus, self::PAID_STATUSES, true)) {
             try {
                 $this->orderManagement->createInvoice($orderId);
             } catch (\Exception $exception) {
                 $this->logger->warning('Error creating Invoice: ' . $exception->getMessage());
             }
-        } elseif ($ocOrderStatus === 'payment_heleket_pending_status_id') {
+        } elseif (in_array($heleketOrderStatus, self::HELEKET_PENDING_STATUSES, true)) {
             $this->logger->warning("Heleket status : $heleketOrderStatus; Heleket order: $orderId");
-        } elseif ($ocOrderStatus === 'payment_heleket_invalid_status_id') {
+        } elseif (in_array($heleketOrderStatus, self::HELEKET_ERROR_STATUSES, true)) {
             $this->orderManagement->cancelOrder($orderId);
             $this->logger->warning("Heleket status : $heleketOrderStatus; Heleket order: $orderId");
+        } else {
+            $this->logger->warning("Unknown Heleket status : $heleketOrderStatus; Heleket order: $orderId");
         }
 
         return $resultJson->setHttpResponseCode(200);
+    }
+
+    /**
+     * @return array
+     */
+    private function getRequestData(): array
+    {
+        $request = $this->request->getPostValue();
+        if (is_array($request) && $request) {
+            return $request;
+        }
+
+        $content = (string)$this->request->getContent();
+        if ($content) {
+            $decodedRequest = json_decode($content, true);
+            if (is_array($decodedRequest)) {
+                return $decodedRequest;
+            }
+        }
+
+        $params = $this->request->getParams();
+        return is_array($params) ? $params : [];
+    }
+
+    /**
+     * @param array $request
+     * @return bool
+     */
+    private function isSignatureValid(array $request): bool
+    {
+        if (empty($request['sign'])) {
+            return false;
+        }
+
+        $sign = (string)$request['sign'];
+        unset($request['sign']);
+
+        $hash = md5(base64_encode(json_encode($request, JSON_UNESCAPED_UNICODE)) . $this->config->getPaymentKey());
+
+        return hash_equals($hash, $sign);
     }
 
     /**
