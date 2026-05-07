@@ -95,6 +95,7 @@ class OrderManagement
             $order->setState(\Magento\Sales\Model\Order::STATE_COMPLETE);
             $order->setStatus(\Magento\Sales\Model\Order::STATE_COMPLETE);
             $order->save();
+            $this->logger->warning("Order $orderIncrementId successfully completed after Heleket payment");
 
             if ($invoice) {
                 try {
