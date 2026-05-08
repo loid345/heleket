@@ -17,6 +17,7 @@
 															<item name="children" xsi:type="array">
 																<item name="heleket" xsi:type="array">
 																	<item name="component" xsi:type="string">MageBrains_Heleket/js/view/payment/heleket</item>
+																	<item name="sortOrder" xsi:type="number">999</item>
 																	<item name="methods" xsi:type="array">
 																		<item name="heleket" xsi:type="array">
 																			<item name="isBillingAddressRequired" xsi:type="boolean">true</item>

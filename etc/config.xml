@@ -12,6 +12,7 @@
 				<title>Heleket</title>
 				<allowspecific>0</allowspecific>
 				<group>offline</group>
+                <sort_order>999</sort_order>
 			</heleket>
 		</payment>
 	</default>
