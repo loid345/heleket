@@ -128,6 +128,15 @@ class OrderManagement
         }
     }
 
+
+    /**
+     * @param string $orderIncrementId
+     * @return Order
+     */
+    public function getOrderForRedirect(string $orderIncrementId): Order
+    {
+        return $this->getOrderByIncrementId($orderIncrementId);
+    }
     /**
      * @param $orderIncrementId
      * @return \Magento\Sales\Model\Order
