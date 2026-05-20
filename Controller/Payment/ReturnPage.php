@@ -14,6 +14,17 @@ use Magento\Sales\Model\Order;
 
 class ReturnPage implements HttpGetActionInterface
 {
+    private const HELEKET_ERROR_STATUSES = [
+        'fail',
+        'system_fail',
+        'wrong_amount',
+        'cancel',
+    ];
+
+    private const HELEKET_PAID_STATUSES = [
+        'paid',
+        'paid_over',
+    ];
     private Session $checkoutSession;
 
     private OrderManagement $orderManagement;
@@ -46,7 +57,12 @@ class ReturnPage implements HttpGetActionInterface
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
         }
 
-        if ($order->getState() === Order::STATE_CANCELED) {
+        $status = strtolower(trim((string)$this->request->getParam('status')));
+        if (in_array($status, self::HELEKET_ERROR_STATUSES, true) || $order->getState() === Order::STATE_CANCELED) {
+            return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/onepage/failure');
+        }
+
+        if ($status !== '' && !in_array($status, self::HELEKET_PAID_STATUSES, true)) {
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
         }
 
