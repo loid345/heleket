@@ -7,6 +7,7 @@ namespace MageBrains\Heleket\Controller\Payment;
 use MageBrains\Heleket\Model\OrderManagement;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\HttpGetActionInterface;
+use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\Redirect;
 use Magento\Framework\Controller\ResultFactory;
 use Magento\Sales\Model\Order;
@@ -19,19 +20,23 @@ class ReturnPage implements HttpGetActionInterface
 
     private ResultFactory $resultFactory;
 
+    private RequestInterface $request;
+
     public function __construct(
         Session $checkoutSession,
         OrderManagement $orderManagement,
-        ResultFactory $resultFactory
+        ResultFactory $resultFactory,
+        RequestInterface $request
     ) {
         $this->checkoutSession = $checkoutSession;
         $this->orderManagement = $orderManagement;
         $this->resultFactory = $resultFactory;
+        $this->request = $request;
     }
 
     public function execute()
     {
-        $orderIncrementId = (string)($this->checkoutSession->getLastRealOrderId() ?: '');
+        $orderIncrementId = (string)($this->request->getParam('order_id') ?: $this->checkoutSession->getLastRealOrderId() ?: '');
         if ($orderIncrementId === '') {
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
         }

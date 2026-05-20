@@ -82,7 +82,7 @@ class Heleket
             'amount' => (string)round((float)$order->getGrandTotal(), 2),
             'currency' => $this->getCurrentCurrencyCode(),
             'order_id' => $order->getIncrementId(),
-            'url_return' => $this->getReturnPageUrl(),
+            'url_return' => $this->getReturnPageUrl((string)$order->getIncrementId()),
             'url_callback' => $this->urlBuilder->getUrl('heleket/payment/callback'),
             'is_payment_multiple' => false,
             'lifetime' => $this->config->getLifetime()
@@ -102,8 +102,10 @@ class Heleket
     /**
      * @return string
      */
-    private function getReturnPageUrl()
+    private function getReturnPageUrl(string $orderIncrementId)
     {
-        return $this->urlBuilder->getUrl('heleket/payment/returnpage');
+        return $this->urlBuilder->getUrl('heleket/payment/returnpage', [
+            "_query" => ["order_id" => $orderIncrementId]
+        ]);
     }
 }
