@@ -3,6 +3,7 @@
 namespace MageBrains\Heleket\Controller\Payment;
 
 use MageBrains\Heleket\Service\Heleket as PaymentService;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\Controller\ResultFactory;
@@ -48,6 +49,10 @@ class Redirect implements HttpGetActionInterface
 
         /** @var \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
         $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
+
+        if (!$paymentResponse) {
+            throw new LocalizedException(__('Unable to create Heleket payment URL.'));
+        }
 
         return $resultRedirect->setUrl($paymentResponse);
     }
