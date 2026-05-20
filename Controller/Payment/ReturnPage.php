@@ -21,10 +21,6 @@ class ReturnPage implements HttpGetActionInterface
         'cancel',
     ];
 
-    private const HELEKET_PAID_STATUSES = [
-        'paid',
-        'paid_over',
-    ];
     private Session $checkoutSession;
 
     private OrderManagement $orderManagement;
@@ -62,7 +58,7 @@ class ReturnPage implements HttpGetActionInterface
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/onepage/failure');
         }
 
-        if ($status !== '' && !in_array($status, self::HELEKET_PAID_STATUSES, true)) {
+        if (!in_array($order->getState(), [Order::STATE_PROCESSING, Order::STATE_COMPLETE], true)) {
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
         }
 

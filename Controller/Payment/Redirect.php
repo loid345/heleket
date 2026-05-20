@@ -7,6 +7,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\Controller\ResultFactory;
+use Magento\Sales\Api\Data\OrderPaymentInterface;
 use Magento\Sales\Model\Order;
 
 class Redirect implements HttpGetActionInterface
@@ -55,7 +56,17 @@ class Redirect implements HttpGetActionInterface
             return $resultRedirect->setPath('checkout/onepage/success');
         }
 
+        if ($order->getState() === Order::STATE_CANCELED) {
+            $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
+            return $resultRedirect->setPath('checkout/onepage/failure');
+        }
+
+        /** @var OrderPaymentInterface|null $payment */
         $payment = $order->getPayment();
+        if (!$payment || $payment->getMethod() !== 'heleket') {
+            throw new LocalizedException(__('Unable to initialize Heleket payment: invalid payment method context.'));
+        }
+
         $existingUrl = (string)$payment->getAdditionalInformation('heleket_payment_url');
         if ($existingUrl !== '') {
             $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
