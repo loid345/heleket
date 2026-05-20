@@ -48,14 +48,20 @@ class ReturnPage implements HttpGetActionInterface
 
     public function execute()
     {
-        $orderIncrementId = (string)($this->request->getParam('order_id') ?: $this->checkoutSession->getLastRealOrderId() ?: '');
+        $requestOrderId = (string)$this->request->getParam('order_id');
+        $sessionOrderId = (string)$this->checkoutSession->getLastRealOrderId();
+        $orderIncrementId = (string)($requestOrderId ?: $sessionOrderId ?: '');
         if ($orderIncrementId === '') {
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
         }
 
         $providedSign = strtolower(trim((string)$this->request->getParam('rsign')));
-        if ($providedSign !== '') {
-            $expectedSign = hash_hmac('sha256', $orderIncrementId, $this->config->getPaymentKey());
+        if ($requestOrderId !== '') {
+            if ($providedSign === '') {
+                return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
+            }
+
+            $expectedSign = hash_hmac('sha256', $requestOrderId, $this->config->getPaymentKey());
             if (!hash_equals($expectedSign, $providedSign)) {
                 return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
             }
