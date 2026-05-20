@@ -104,8 +104,13 @@ class Heleket
      */
     private function getReturnPageUrl(string $orderIncrementId)
     {
+        $returnSign = hash_hmac('sha256', $orderIncrementId, $this->config->getPaymentKey());
+
         return $this->urlBuilder->getUrl('heleket/payment/returnpage', [
-            "_query" => ["order_id" => $orderIncrementId]
+            "_query" => [
+                "order_id" => $orderIncrementId,
+                "rsign" => $returnSign
+            ]
         ]);
     }
 }

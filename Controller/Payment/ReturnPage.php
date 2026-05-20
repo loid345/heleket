@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MageBrains\Heleket\Controller\Payment;
 
+use MageBrains\Heleket\Model\Config;
 use MageBrains\Heleket\Model\OrderManagement;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\HttpGetActionInterface;
@@ -25,6 +26,8 @@ class ReturnPage implements HttpGetActionInterface
 
     private OrderManagement $orderManagement;
 
+    private Config $config;
+
     private ResultFactory $resultFactory;
 
     private RequestInterface $request;
@@ -32,11 +35,13 @@ class ReturnPage implements HttpGetActionInterface
     public function __construct(
         Session $checkoutSession,
         OrderManagement $orderManagement,
+        Config $config,
         ResultFactory $resultFactory,
         RequestInterface $request
     ) {
         $this->checkoutSession = $checkoutSession;
         $this->orderManagement = $orderManagement;
+        $this->config = $config;
         $this->resultFactory = $resultFactory;
         $this->request = $request;
     }
@@ -46,6 +51,14 @@ class ReturnPage implements HttpGetActionInterface
         $orderIncrementId = (string)($this->request->getParam('order_id') ?: $this->checkoutSession->getLastRealOrderId() ?: '');
         if ($orderIncrementId === '') {
             return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
+        }
+
+        $providedSign = strtolower(trim((string)$this->request->getParam('rsign')));
+        if ($providedSign !== '') {
+            $expectedSign = hash_hmac('sha256', $orderIncrementId, $this->config->getPaymentKey());
+            if (!hash_equals($expectedSign, $providedSign)) {
+                return $this->resultFactory->create(ResultFactory::TYPE_REDIRECT)->setPath('checkout/cart');
+            }
         }
 
         $order = $this->orderManagement->getOrderForRedirect($orderIncrementId);
