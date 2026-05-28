@@ -93,7 +93,9 @@ class OrderManagement
                 $this->logger->warning("Invoice for order $orderIncrementId already created. Skipping");
             }
 
-            $targetState = $order->getIsVirtual() ? Order::STATE_COMPLETE : Order::STATE_PROCESSING;
+            $targetState = ($order->getIsVirtual() || !$order->canShip())
+                ? Order::STATE_COMPLETE
+                : Order::STATE_PROCESSING;
             $order->setState($targetState);
             $order->setStatus($order->getConfig()->getStateDefaultStatus($targetState));
             $order->save();
