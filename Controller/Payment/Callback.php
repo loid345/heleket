@@ -30,6 +30,8 @@ class Callback implements ActionInterface, CsrfAwareActionInterface
     const PAID_STATUSES = [
         'paid',
         'paid_over',
+        'complete',
+        'completed',
     ];
     /**
      * @var Http
